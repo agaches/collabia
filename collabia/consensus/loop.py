@@ -1,7 +1,7 @@
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from collabia.agents.base import AgentAnalysis, AgentCritique, AgentResponse, BaseAgent
+from collabia.agents.base import AgentAnalysis, AgentCritique, AgentMetrics, AgentResponse, BaseAgent
 from collabia.consensus.voting import compute_elimination_votes, find_best
 from collabia.display.terminal import Display
 
@@ -10,6 +10,24 @@ from collabia.display.terminal import Display
 class ConsensusResult:
     winner: AgentResponse
     first_response: AgentResponse | None  # winner's round 1 response, None if only 1 round
+    metrics: dict[str, AgentMetrics] = field(default_factory=dict)
+
+    def total_cost_eur(self) -> float:
+        from collabia.pricing import cost_eur
+        return sum(
+            cost_eur(m.model, m.input_tokens, m.output_tokens)
+            for m in self.metrics.values()
+        )
+
+
+def _track(metrics: dict[str, AgentMetrics], agents: list[BaseAgent], results: list) -> None:
+    """Accumulate token usage from a list of phase results into metrics."""
+    for agent, result in zip(agents, results):
+        if isinstance(result, Exception):
+            continue
+        if agent.agent_id not in metrics:
+            metrics[agent.agent_id] = AgentMetrics(agent_id=agent.agent_id, model=agent.model)
+        metrics[agent.agent_id].add(result.input_tokens, result.output_tokens)
 
 
 async def run_consensus(
@@ -21,18 +39,30 @@ async def run_consensus(
 ) -> ConsensusResult:
     context = ""
     last_responses: dict[str, AgentResponse] = {}
-    first_responses: dict[str, AgentResponse] = {}  # round 1 responses
+    first_responses: dict[str, AgentResponse] = {}
+    metrics: dict[str, AgentMetrics] = {}
 
     for round_num in range(1, max_rounds + 1):
         active_agents = [a for a in agents if not a.is_eliminated]
 
-        # Only 1 active agent left — they win
+        # Only 1 active agent left — they win (or fall back to last known response)
         if len(active_agents) == 1:
             winner = active_agents[0]
             display.winner(winner.display_name, round_num - 1)
-            final = last_responses[winner.agent_id]
-            first = first_responses.get(winner.agent_id)
-            return ConsensusResult(winner=final, first_response=first if first != final else None)
+            # Winner may have failed every round (e.g. quota) — fall back to last known response
+            final = last_responses.get(winner.agent_id) or (
+                last_responses[next(iter(last_responses))] if last_responses else None
+            )
+            if final is None:
+                raise RuntimeError(f"No response available for winner {winner.agent_id!r}")
+            first = first_responses.get(winner.agent_id) or first_responses.get(
+                next(iter(first_responses), None)
+            )
+            return ConsensusResult(
+                winner=final,
+                first_response=first if first != final else None,
+                metrics=metrics,
+            )
 
         display.start_round(round_num, max_rounds, [a.display_name for a in active_agents])
 
@@ -41,6 +71,7 @@ async def run_consensus(
             agent.respond(question, context, round_num) for agent in active_agents
         ]
         raw_responses = await asyncio.gather(*response_tasks, return_exceptions=True)
+        _track(metrics, active_agents, raw_responses)
 
         responses: dict[str, AgentResponse] = {}
         for agent, result in zip(active_agents, raw_responses):
@@ -63,6 +94,7 @@ async def run_consensus(
             agent.critique(question, responses, round_num) for agent in agents
         ]
         raw_critiques = await asyncio.gather(*critique_tasks, return_exceptions=True)
+        _track(metrics, agents, raw_critiques)
 
         critiques: list[AgentCritique] = []
         for agent, result in zip(agents, raw_critiques):
@@ -78,6 +110,7 @@ async def run_consensus(
             agent.analyze(question, responses, critiques, round_num) for agent in agents
         ]
         raw_analyses = await asyncio.gather(*analysis_tasks, return_exceptions=True)
+        _track(metrics, agents, raw_analyses)
 
         analyses: list[AgentAnalysis] = []
         for agent, result in zip(agents, raw_analyses):
@@ -93,7 +126,6 @@ async def run_consensus(
         worst_id, votes = compute_elimination_votes(analyses)
         display.show_elimination_votes(votes, analyses, verbose)
 
-        # Eliminate the agent with the most votes against them
         for agent in agents:
             if agent.agent_id == worst_id:
                 agent.is_eliminated = True
@@ -115,6 +147,10 @@ async def run_consensus(
             if aid in last_responses:
                 final = last_responses[aid]
                 first = first_responses.get(aid)
-                return ConsensusResult(winner=final, first_response=first if first != final else None)
+                return ConsensusResult(
+                    winner=final,
+                    first_response=first if first != final else None,
+                    metrics=metrics,
+                )
 
     raise RuntimeError("No responses were generated.")

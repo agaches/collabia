@@ -11,8 +11,7 @@ from collabia.prompts.responder import RESPONDER_SYSTEM, responder_prompt
 
 class GenericGeminiAgent(BaseAgent):
     def __init__(self, agent_id: str, display_name: str, model: str, location: str | None = None):
-        super().__init__(agent_id=agent_id, display_name=display_name)
-        self.model = model
+        super().__init__(agent_id=agent_id, display_name=display_name, model=model)
         self._client = genai.Client(
             vertexai=True,
             project=settings.gcp_project_id,
@@ -27,7 +26,14 @@ class GenericGeminiAgent(BaseAgent):
                 system_instruction=RESPONDER_SYSTEM,
             ),
         )
-        return AgentResponse(agent_id=self.agent_id, text=response.text, round_num=round_num)
+        um = response.usage_metadata
+        return AgentResponse(
+            agent_id=self.agent_id,
+            text=response.text,
+            round_num=round_num,
+            input_tokens=getattr(um, "prompt_token_count", 0) or 0,
+            output_tokens=getattr(um, "candidates_token_count", 0) or 0,
+        )
 
     async def critique(
         self,
@@ -44,10 +50,13 @@ class GenericGeminiAgent(BaseAgent):
             ),
         )
         data = parse_json(response.text)
+        um = response.usage_metadata
         return AgentCritique(
             agent_id=self.agent_id,
             critiques=data["critiques"],
             round_num=round_num,
+            input_tokens=getattr(um, "prompt_token_count", 0) or 0,
+            output_tokens=getattr(um, "candidates_token_count", 0) or 0,
         )
 
     async def analyze(
@@ -66,9 +75,12 @@ class GenericGeminiAgent(BaseAgent):
             ),
         )
         data = parse_json(response.text)
+        um = response.usage_metadata
         return AgentAnalysis(
             agent_id=self.agent_id,
             eliminate_agent_id=data["eliminate_agent_id"],
             reasoning=data["reasoning"],
             round_num=round_num,
+            input_tokens=getattr(um, "prompt_token_count", 0) or 0,
+            output_tokens=getattr(um, "candidates_token_count", 0) or 0,
         )

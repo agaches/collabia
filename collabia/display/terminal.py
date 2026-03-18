@@ -5,7 +5,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from collabia.agents.base import AgentAnalysis, AgentCritique, AgentResponse, BaseAgent
+from collabia.agents.base import AgentAnalysis, AgentCritique, AgentMetrics, AgentResponse, BaseAgent
+from collabia.pricing import cost_eur, cost_usd
 
 console = Console()
 
@@ -148,6 +149,32 @@ class Display:
                     border_style="blue",
                 )
             )
+
+    def show_cost_breakdown(self, metrics: dict[str, AgentMetrics]) -> None:
+        if not metrics:
+            return
+        table = Table(title="Cost breakdown", show_header=True, header_style="bold cyan")
+        table.add_column("Agent", style="cyan")
+        table.add_column("Model", style="dim")
+        table.add_column("Input tok", justify="right")
+        table.add_column("Output tok", justify="right")
+        table.add_column("Cost (€)", justify="right", style="bold")
+
+        total_eur = 0.0
+        for m in metrics.values():
+            eur = cost_eur(m.model, m.input_tokens, m.output_tokens)
+            total_eur += eur
+            table.add_row(
+                m.agent_id,
+                m.model,
+                f"{m.input_tokens:,}",
+                f"{m.output_tokens:,}",
+                f"€{eur:.4f}",
+            )
+
+        table.add_section()
+        table.add_row("[bold]TOTAL[/]", "", "", "", f"[bold]€{total_eur:.4f}[/]")
+        console.print(table)
 
     def check_auth_ok(self, name: str) -> None:
         console.print(f"  [green]✓[/] {name} OK")
