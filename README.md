@@ -1,21 +1,32 @@
 # Collabia
 
-Multi-agent conversational chatbot where several LLMs debate until reaching consensus.
+Multi-agent debate system where several LLMs critique each other's answers and iteratively eliminate the weakest response until one winner remains.
 
-**Core idea:** A single LLM is often imperfect. Multiple AI models that exchange, critique, and vote on each other's answers produce a significantly better final answer.
+**Core idea:** A single LLM is often imperfect. Multiple AI models that exchange, critique, and vote against each other's weaknesses produce a significantly better final answer through iterative elimination.
 
 ## How it works
 
-Each round:
-1. All active agents answer the question **in parallel**
-2. All agents (including eliminated ones) **analyze** all answers and vote for the best
-3. If a majority agrees → **consensus reached**, loop ends
-4. Otherwise, the worst-performing agent is eliminated and the loop continues
+Each round has 3 phases:
+
+1. **Respond** — all active agents answer the question in parallel
+2. **Critique** — all agents (including eliminated ones) identify concrete errors and weaknesses in each response
+3. **Eliminate** — all agents vote to remove the worst response; the agent with the most votes against them is eliminated
+
+The loop continues until only one agent remains (the winner), or `max_rounds` is reached.
 
 ```
-Round 1: [Gemini Pro] [Gemini Flash] [Gemini Lite]  → vote → no consensus → eliminate worst
-Round 2: [Gemini Pro] [Gemini Flash]                 → vote → consensus ✓
+Round 1: [Gemini Pro] [Gemini Flash] [Gemini Lite]
+         → critique each response
+         → vote: eliminate Gemini Lite (weakest)
+
+Round 2: [Gemini Pro] [Gemini Flash]
+         → critique each response
+         → vote: eliminate Gemini Flash
+
+Winner: Gemini Pro ✓
 ```
+
+Eliminated agents can no longer respond but still participate in critique and voting — their judgment still counts.
 
 ## Prerequisites
 
@@ -85,5 +96,5 @@ uv run collabia "Is Python better than JavaScript?" --rounds 3 --verbose
 
 | Option | Default | Description |
 |---|---|---|
-| `--rounds` / `-r` | `5` | Max consensus rounds |
-| `--verbose` / `-v` | off | Show full responses and analysis details |
+| `--rounds` / `-r` | `5` | Max elimination rounds |
+| `--verbose` / `-v` | off | Show full responses, critiques, and vote details |
