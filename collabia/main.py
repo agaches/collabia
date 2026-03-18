@@ -71,6 +71,38 @@ def _save_result(question: str, config_path: str, result, agents) -> Path:
     return out_path
 
 
+def _save_baseline(question: str, model: str, resp, metrics: dict) -> Path:
+    from collabia.pricing import cost_eur
+
+    ts = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    out_dir = Path("tests/results")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{ts}_baseline_{model.replace('/', '-')}.json"
+
+    m = metrics["baseline"]
+    data = {
+        "question": question,
+        "config": f"baseline:{model}",
+        "timestamp": datetime.now().isoformat(),
+        "rounds_run": 1,
+        "winner": {"agent_id": "baseline", "model": model, "text": resp.text},
+        "first_response": None,
+        "cost_breakdown": [
+            {
+                "agent_id": "baseline",
+                "model": model,
+                "input_tokens": m.input_tokens,
+                "output_tokens": m.output_tokens,
+                "cost_eur": round(cost_eur(model, m.input_tokens, m.output_tokens), 6),
+            }
+        ],
+        "total_cost_eur": round(cost_eur(model, m.input_tokens, m.output_tokens), 6),
+    }
+
+    out_path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    return out_path
+
+
 @app.command(name="ask", help="Ask a question and run the consensus loop.")
 def ask(
     question: str = typer.Argument(..., help="The question to ask"),
@@ -115,13 +147,62 @@ def benchmark(
         "-c",
         help="Agent YAML configs to compare (repeat for multiple)",
     ),
+    baseline: str = typer.Option(
+        None,
+        "--baseline",
+        "-b",
+        help="Single-model baseline to compare against (e.g. gemini-2.5-pro)",
+    ),
+    baseline_provider: str = typer.Option(
+        "gemini",
+        "--baseline-provider",
+        help="Provider for baseline model: gemini | mistral | claude",
+    ),
     save: bool = typer.Option(False, "--save", "-s", help="Save each result to tests/results/"),
 ):
+    async def _run_baseline_call(model: str, provider: str):
+        from collabia.agents.base import AgentMetrics
+        from collabia.agents.generic_gemini import GenericGeminiAgent
+        from collabia.agents.claude import ClaudeAgent
+        from collabia.agents.mistral import MistralVertexAgent
+
+        if provider == "gemini":
+            agent = GenericGeminiAgent(agent_id="baseline", display_name=f"Baseline ({model})", model=model)
+        elif provider == "claude":
+            agent = ClaudeAgent(agent_id="baseline", display_name=f"Baseline ({model})", model=model)
+        elif provider == "mistral":
+            agent = MistralVertexAgent(agent_id="baseline", display_name=f"Baseline ({model})", model=model)
+        else:
+            raise ValueError(f"Unknown baseline provider: {provider!r}")
+
+        resp = await agent.respond(question, context="", round_num=1)
+        metrics = {
+            "baseline": AgentMetrics(
+                agent_id="baseline",
+                model=model,
+                input_tokens=resp.input_tokens,
+                output_tokens=resp.output_tokens,
+            )
+        }
+        return resp, metrics
+
     async def _run():
         display = Display()
         from collabia.consensus.loop import run_consensus
 
         results = []
+
+        # Run baseline first if requested
+        if baseline:
+            label = f"baseline: {baseline}"
+            console.rule(f"[bold yellow]Baseline: {baseline} (single call, no loop)[/]")
+            resp, metrics = await _run_baseline_call(baseline, baseline_provider)
+            console.print(f"  [dim]{resp.text[:200].replace(chr(10), ' ')}…[/]")
+            results.append((label, None, resp, metrics, []))
+            if save:
+                path = _save_baseline(question, baseline, resp, metrics)
+                console.print(f"[dim]Saved → {path}[/]")
+
         for config_path in configs:
             console.rule(f"[bold cyan]Running: {config_path}[/]")
             agents = _make_agents(config_path)
