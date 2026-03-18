@@ -1,6 +1,6 @@
 import asyncio
 
-from collabia.agents.base import AgentAnalysis, AgentResponse, BaseAgent
+from collabia.agents.base import AgentAnalysis, AgentCritique, AgentResponse, BaseAgent
 from collabia.consensus.voting import compute_majority, find_worst, is_majority
 from collabia.display.terminal import Display
 
@@ -40,21 +40,36 @@ async def run_consensus(
         last_responses = responses
         display.show_responses(responses, verbose)
 
-        # --- Phase 2: parallel analysis from ALL agents ---
+        # --- Phase 2: parallel critiques from ALL agents ---
+        critique_tasks = [
+            agent.critique(question, responses, round_num) for agent in agents
+        ]
+        raw_critiques = await asyncio.gather(*critique_tasks, return_exceptions=True)
+
+        critiques: list[AgentCritique] = []
+        for agent, result in zip(agents, raw_critiques):
+            if isinstance(result, Exception):
+                display.agent_error(agent.display_name, f"critique error: {result}")
+            else:
+                critiques.append(result)
+
+        display.show_critiques(critiques, verbose)
+
+        # --- Phase 3: parallel votes from ALL agents (informed by critiques) ---
         analysis_tasks = [
-            agent.analyze(question, responses, context, round_num) for agent in agents
+            agent.analyze(question, responses, critiques, round_num) for agent in agents
         ]
         raw_analyses = await asyncio.gather(*analysis_tasks, return_exceptions=True)
 
         analyses: list[AgentAnalysis] = []
         for agent, result in zip(agents, raw_analyses):
             if isinstance(result, Exception):
-                display.agent_error(agent.display_name, f"analysis error: {result}")
+                display.agent_error(agent.display_name, f"vote error: {result}")
             else:
                 analyses.append(result)
 
         if not analyses:
-            display.error("All analyses failed.")
+            display.error("All votes failed.")
             break
 
         preferred_id, votes = compute_majority(analyses)
@@ -82,7 +97,6 @@ async def run_consensus(
     # No consensus reached — return the last preferred response
     display.no_consensus(max_rounds)
     if last_responses:
-        # Return the one with most recent votes or just the first
         preferred_id = next(iter(last_responses))
         return last_responses[preferred_id]
 

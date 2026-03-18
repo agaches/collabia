@@ -5,7 +5,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from collabia.agents.base import AgentAnalysis, AgentResponse, BaseAgent
+from collabia.agents.base import AgentAnalysis, AgentCritique, AgentResponse, BaseAgent
 
 console = Console()
 
@@ -33,6 +33,23 @@ class Display:
                 if len(resp.text) > 200:
                     preview += "…"
                 console.print(f"  [green]{agent_id}[/]: {preview}")
+
+    def show_critiques(self, critiques: list[AgentCritique], verbose: bool) -> None:
+        if not verbose:
+            console.print(f"  [yellow]✎ {len(critiques)} critique(s) collected[/]")
+            return
+        for critique in critiques:
+            lines = "\n".join(
+                f"[bold]{agent_id}:[/] {text}"
+                for agent_id, text in critique.critiques.items()
+            )
+            console.print(
+                Panel(
+                    lines,
+                    title=f"[yellow]{critique.agent_id}[/] critiques",
+                    border_style="yellow",
+                )
+            )
 
     def show_votes(
         self, votes: Counter, analyses: list[AgentAnalysis], verbose: bool

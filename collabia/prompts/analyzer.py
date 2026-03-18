@@ -1,24 +1,30 @@
-ANALYZER_SYSTEM = """\
-You are an expert evaluator in a multi-agent consensus system.
-You will be given a question and several AI-generated responses.
-Your task is to select the best response and explain your reasoning.
+VOTER_SYSTEM = """\
+You are a judge in a multi-agent debate system.
+You will be given a question, several AI-generated responses, and critiques of each response written by other agents.
+Your task is to select the best response, taking all critiques into account.
 
 You MUST respond with valid JSON only, using this exact schema:
 {
   "preferred_agent_id": "<agent_id of the best response>",
-  "reasoning": "<why this response is best>",
-  "weaknesses": "<weaknesses of the other responses, or weaknesses of the chosen one>"
+  "reasoning": "<why this response is best, despite its critiques>"
 }
 """
 
 
-def analyzer_prompt(question: str, responses: dict) -> str:
+def voter_prompt(question: str, responses: dict, critiques: list) -> str:
     responses_text = "\n\n".join(
         f"--- Agent: {agent_id} ---\n{resp.text}"
         for agent_id, resp in responses.items()
     )
+    critiques_text = ""
+    for critique in critiques:
+        critiques_text += f"\n\n=== Critiques by {critique.agent_id} ===\n"
+        for agent_id, text in critique.critiques.items():
+            critiques_text += f"  [{agent_id}]: {text}\n"
+
     return (
         f"Question: {question}\n\n"
-        f"Responses to evaluate:\n\n{responses_text}\n\n"
-        f"Select the best response. Reply with JSON only."
+        f"Responses:\n\n{responses_text}\n\n"
+        f"Critiques from all agents:{critiques_text}\n\n"
+        f"Select the best response after considering the critiques. Reply with JSON only."
     )
