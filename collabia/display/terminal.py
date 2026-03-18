@@ -1,0 +1,99 @@
+from collections import Counter
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+
+from collabia.agents.base import AgentAnalysis, AgentResponse, BaseAgent
+
+console = Console()
+
+
+class Display:
+    def __init__(self, verbose: bool = False):
+        self.verbose = verbose
+
+    def start_round(self, round_num: int, max_rounds: int, agent_names: list[str]) -> None:
+        agents_str = ", ".join(agent_names)
+        console.rule(f"[bold cyan]Round {round_num}/{max_rounds}[/] — Active: {agents_str}")
+
+    def show_responses(self, responses: dict[str, AgentResponse], verbose: bool) -> None:
+        for agent_id, resp in responses.items():
+            if verbose:
+                console.print(
+                    Panel(
+                        resp.text,
+                        title=f"[bold green]{agent_id}[/] response",
+                        border_style="green",
+                    )
+                )
+            else:
+                preview = resp.text[:200].replace("\n", " ")
+                if len(resp.text) > 200:
+                    preview += "…"
+                console.print(f"  [green]{agent_id}[/]: {preview}")
+
+    def show_votes(
+        self, votes: Counter, analyses: list[AgentAnalysis], verbose: bool
+    ) -> None:
+        table = Table(title="Votes", show_header=True, header_style="bold magenta")
+        table.add_column("Agent", style="cyan")
+        table.add_column("Votes", justify="right")
+        for agent_id, count in votes.most_common():
+            table.add_row(agent_id, str(count))
+        console.print(table)
+
+        if verbose:
+            for analysis in analyses:
+                console.print(
+                    Panel(
+                        f"[bold]Preferred:[/] {analysis.preferred_agent_id}\n"
+                        f"[bold]Reasoning:[/] {analysis.reasoning}\n"
+                        f"[bold]Weaknesses:[/] {analysis.weaknesses}",
+                        title=f"[magenta]{analysis.agent_id}[/] analysis",
+                        border_style="magenta",
+                    )
+                )
+
+    def consensus_reached(
+        self, round_num: int, winner_id: str, agents: list[BaseAgent]
+    ) -> None:
+        winner = next((a for a in agents if a.agent_id == winner_id), None)
+        name = winner.display_name if winner else winner_id
+        console.print(
+            f"\n[bold green]✓ Consensus reached in round {round_num}![/] "
+            f"Winner: [bold]{name}[/]\n"
+        )
+
+    def agent_eliminated(self, display_name: str) -> None:
+        console.print(f"  [yellow]⚠ {display_name} eliminated (fewest votes)[/]")
+
+    def agent_error(self, display_name: str, message: str) -> None:
+        console.print(f"  [red]✗ {display_name} error: {message}[/]")
+
+    def error(self, message: str) -> None:
+        console.print(f"[bold red]Error: {message}[/]")
+
+    def no_consensus(self, max_rounds: int) -> None:
+        console.print(
+            f"\n[yellow]No consensus reached after {max_rounds} rounds.[/] "
+            "Returning last preferred response.\n"
+        )
+
+    def show_final_answer(self, response: AgentResponse, agents: list[BaseAgent]) -> None:
+        agent = next((a for a in agents if a.agent_id == response.agent_id), None)
+        name = agent.display_name if agent else response.agent_id
+        console.print(
+            Panel(
+                response.text,
+                title=f"[bold blue]Final Answer[/] — {name}",
+                border_style="blue",
+            )
+        )
+
+    def check_auth_ok(self, name: str) -> None:
+        console.print(f"  [green]✓[/] {name} OK")
+
+    def check_auth_fail(self, name: str, error: str) -> None:
+        console.print(f"  [red]✗[/] {name} FAILED: {error}")
