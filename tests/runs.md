@@ -136,3 +136,154 @@ uv run collabia "<question>"
 - La boucle d'amélioration fonctionne : les 5 réponses finales sont plus structurées, plus nuancées et plus actionnables que les R1
 - 2 erreurs JSON sur critiques Flash (T1, T3) — les 2 tests où Flash avait produit de longues réponses avec du contenu markdown riche → corrigé avec `json-repair`
 - Gemini Pro gagne 4/5 tests ; Flash gagne T1 (NoSQL vs SQL) où Pro a été jugé moins nuancé sur les limites du NoSQL
+
+---
+
+## Série 2 — 2026-03-18 — Benchmark default vs 3xlite
+
+### Méthodologie
+
+**Commande utilisée :**
+```bash
+uv run collabia benchmark "<question>"
+```
+
+**Objectif :** mesurer si un modèle Lite révisé 3× via la boucle consensus s'approche de la qualité d'un modèle Pro révisé.
+
+**Configs comparées :**
+- `agents/default.yaml` — Gemini 2.5 Pro + Flash + Lite (hétérogène)
+- `agents/3xlite.yaml` — 3× Gemini Flash Lite (homogène)
+
+**Grille de notation /10 par critère :**
+- **A** — Pertinence & couverture du sujet
+- **B** — Structure & clarté
+- **C** — Valeur ajoutée (ce qui n'est pas évident)
+- **D** — Actionnabilité
+
+---
+
+### Résultats des gagnants par config
+
+| Test | default — Gagnant | 3xlite — Gagnant |
+|------|-------------------|------------------|
+| T1 — NoSQL vs SQL | **Pro** (R2) | **Lite #1** (R2) |
+| T2 — GIL Python | **Pro** (R2) | **Lite #1** (R2) |
+| T3 — React/Vue | **Flash** (R2) | **Lite #1** (R2) |
+| T4 — API REST | **Flash** (R2) | **Lite #1** (R2) |
+| T5 — Microservices | **Pro** (R2) | **Lite #2** (R2) |
+
+**Pattern d'élimination default :** Lite éliminé R1 dans 5/5 cas. Pro gagne 3/5, Flash 2/5.
+**Pattern d'élimination 3xlite :** toujours 2 rounds, Lite #1 gagne 4/5.
+
+---
+
+### Analyse comparative notée
+
+#### T1 — NoSQL vs SQL
+
+**default — Pro final (8.25/10)**
+Structure en 4 questions-signal ("Le signal pour NoSQL / Quand rester SQL"), exemples concrets par dimension, synthèse polyglotte e-commerce (5 technos). Standalone parfait.
+
+| A | B | C | D | Moy |
+|---|---|---|---|-----|
+| 9 | 9 | 7 | 8 | **8.25** |
+
+**3xlite — Lite #1 final (7.5/10)**
+Angle complémentaire : Time-to-Market, coût opérationnel (maturité SQL vs complexité NoSQL), "Test de la Décision" en 3 questions ordonné. Conseil fort : "commencez avec SQL". S'appuie explicitement sur la réponse précédente.
+
+| A | B | C | D | Moy |
+|---|---|---|---|-----|
+| 6 | 7.5 | 8 | 8.5 | **7.5** |
+
+---
+
+#### T2 — GIL Python
+
+**default — Pro final (8.75/10)**
+Définition, historique (reference counting), CPU-bound vs I/O-bound avec code, 3 solutions (multiprocessing, libs C, asyncio), PEP 703 + Python 3.13, tableau récapitulatif. Standalone excellent.
+
+| A | B | C | D | Moy |
+|---|---|---|---|-----|
+| 10 | 9 | 8 | 8 | **8.75** |
+
+**3xlite — Lite #1 final (8.25/10)**
+Angle "mécanique interne". Analogie "bâton de parole". Coût caché du context switching (compteur d'instructions). `Py_BEGIN_ALLOW_THREADS` — niveau expert. PEP 703 enrichi : atomic reference counting, avertissement C-extensions. Résumé pratique avec Cython/Numba/Rust.
+
+| A | B | C | D | Moy |
+|---|---|---|---|-----|
+| 7 | 8 | 9 | 8.5 | **8.25** |
+
+---
+
+#### T3 — React vs Vue junior
+
+**default — Flash final (7.9/10)**
+TL;DR efficace. Tableau 5 critères (emploi, apprentissage, écosystème, philosophie, tendances 2025). Verdict par profils. Un peu exhaustif/redondant.
+
+| A | B | C | D | Moy |
+|---|---|---|---|-----|
+| 9 | 8 | 7 | 7.5 | **7.9** |
+
+**3xlite — Lite #1 final (8.6/10)**
+Formule percutante : *"React est le choix de la carrière, Vue celui de la sérénité."* Points originaux : paradoxe React (charge cognitive SSR/RSC pour un junior), TypeScript comme juge de paix (Vue 3 mieux typé), profils psychologiques (Ingénieur pragmatique vs Créatif/Producteur), règle 80/20 tactique.
+
+| A | B | C | D | Moy |
+|---|---|---|---|-----|
+| 8 | 8.5 | 9 | 9 | **8.6** |
+
+---
+
+#### T4 — API REST fort trafic
+
+**default — Flash final (7.6/10)**
+Catalogue en 3 parties : 8 principes, 7 composants (LB, Gateway, microservices, cache, queues, DB, K8s), pratiques opérationnelles + schéma ASCII. Idempotence mentionnée. Bonne référence, assez exhaustif.
+
+| A | B | C | D | Moy |
+|---|---|---|---|-----|
+| 9 | 8 | 6.5 | 7 | **7.6** |
+
+**3xlite — Lite #1 final (8.75/10)**
+Angle "défense des ressources critiques". Concepts avancés absents du Flash : Zero-Trust interne + Service Mesh (Istio/Linkerd), Load Shedding (HTTP 503 proactif), Backpressure, non-blocking I/O (Go goroutines, Java Project Loom), 202 Accepted + EDA, CQRS, Brotli/gRPC. Synthèse "Layered Defense". Canary Releases. Se tient bien seul.
+
+| A | B | C | D | Moy |
+|---|---|---|---|-----|
+| 8 | 8.5 | 9.5 | 9 | **8.75** |
+
+---
+
+#### T5 — Microservices vs monolithe
+
+**default — Pro final (9.0/10)**
+Analogie restaurant/food court mémorable. Tableau 7 critères. Chemin stratégique : Monolithe Modulaire (DDD, règles strictes) → Strangler Fig pattern. Checklist 5 questions. Mantra final.
+
+| A | B | C | D | Moy |
+|---|---|---|---|-----|
+| 9.5 | 9 | 8.5 | 9 | **9.0** |
+
+**3xlite — Lite #2 final (8.4/10)**
+Angle "charge cognitive + cycle de vie". Monolithe Modulaire comme destination finale (pas seulement étape). Matrice de décision organisationnelle (feature-oriented vs monolithe org). Mise en garde contre les *distributed monoliths*. ArchUnit pour enforcer les frontières.
+
+| A | B | C | D | Moy |
+|---|---|---|---|-----|
+| 8 | 8.5 | 8.5 | 8.5 | **8.4** |
+
+---
+
+### Synthèse Série 2
+
+| Test | default | 3xlite | Écart | Vainqueur |
+|------|---------|--------|-------|-----------|
+| T1 — NoSQL vs SQL | **8.25** | 7.5 | +0.75 | default |
+| T2 — GIL Python | **8.75** | 8.25 | +0.5 | default |
+| T3 — React/Vue | 7.9 | **8.6** | +0.7 | 3xlite |
+| T4 — API REST | 7.6 | **8.75** | +1.15 | 3xlite |
+| T5 — Microservices | **9.0** | 8.4 | +0.6 | default |
+| **Moyenne** | **8.3** | **8.3** | 0 | ex aequo |
+
+**Observations :**
+- La boucle consensus fonctionne avec 3 agents identiques — convergence en 2 rounds sur les 5 tests
+- **Comportement divergent** : Pro/Flash produit des réponses intégratives standalone ; Lite ×3 produit des réponses additives complémentaires (chaque instance ajoute un angle orthogonal plutôt que de retraiter le sujet)
+- 3xlite excelle sur les angles "meta" (coût opérationnel, profil psychologique, patterns avancés) mais ne couvre pas les fondamentaux seul
+- Sur les sujets de conseil/orientation (T3, T4), l'angle original de Lite vaut plus que la complétude cataloguée de Flash
+- Sur les sujets encyclopédiques (T2 GIL, T5 Microservices), la profondeur intégrative du Pro fait la différence
+- **Limite identifiée** : pas de phase de synthèse finale — Lite R2 ajoute sans consolider R1+R2 en une réponse unifiée

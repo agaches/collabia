@@ -123,6 +123,32 @@ class Display:
             )
         )
 
+    def show_benchmark(
+        self,
+        results: list[tuple[str, "AgentResponse | None", "AgentResponse"]],
+    ) -> None:
+        """Show benchmark comparison across configs.
+
+        results: list of (config_label, first_response, final_response)
+        """
+        console.rule("[bold magenta]Benchmark Comparison[/]")
+        for config_label, first, final in results:
+            if first and first.text != final.text:
+                console.print(
+                    Panel(
+                        first.text,
+                        title=f"[dim]{config_label} — Round 1 ({first.agent_id})[/]",
+                        border_style="dim",
+                    )
+                )
+            console.print(
+                Panel(
+                    final.text,
+                    title=f"[bold blue]{config_label} — Final (Round {final.round_num}, {final.agent_id})[/]",
+                    border_style="blue",
+                )
+            )
+
     def check_auth_ok(self, name: str) -> None:
         console.print(f"  [green]✓[/] {name} OK")
 

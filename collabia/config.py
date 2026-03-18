@@ -6,9 +6,6 @@ class Settings(BaseSettings):
 
     gcp_project_id: str
     gcp_region: str = "us-central1"
-    gemini_model: str = "gemini-2.5-pro"
-    gemini_flash_model: str = "gemini-2.5-flash"
-    gemini_lite_model: str = "gemini-3.1-flash-lite-preview"
     max_rounds: int = 5
 
 

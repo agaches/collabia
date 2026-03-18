@@ -9,18 +9,19 @@ from collabia.prompts.critic import CRITIC_SYSTEM, critic_prompt
 from collabia.prompts.responder import RESPONDER_SYSTEM, responder_prompt
 
 
-class GeminiAgent(BaseAgent):
-    def __init__(self):
-        super().__init__(agent_id="gemini", display_name="Gemini 2.5 Pro")
+class GenericGeminiAgent(BaseAgent):
+    def __init__(self, agent_id: str, display_name: str, model: str, location: str | None = None):
+        super().__init__(agent_id=agent_id, display_name=display_name)
+        self.model = model
         self._client = genai.Client(
             vertexai=True,
             project=settings.gcp_project_id,
-            location=settings.gcp_region,
+            location=location or settings.gcp_region,
         )
 
     async def respond(self, question: str, context: str, round_num: int) -> AgentResponse:
         response = await self._client.aio.models.generate_content(
-            model=settings.gemini_model,
+            model=self.model,
             contents=responder_prompt(question, context),
             config=types.GenerateContentConfig(
                 system_instruction=RESPONDER_SYSTEM,
@@ -35,7 +36,7 @@ class GeminiAgent(BaseAgent):
         round_num: int,
     ) -> AgentCritique:
         response = await self._client.aio.models.generate_content(
-            model=settings.gemini_model,
+            model=self.model,
             contents=critic_prompt(question, responses),
             config=types.GenerateContentConfig(
                 system_instruction=CRITIC_SYSTEM,
@@ -57,7 +58,7 @@ class GeminiAgent(BaseAgent):
         round_num: int,
     ) -> AgentAnalysis:
         response = await self._client.aio.models.generate_content(
-            model=settings.gemini_model,
+            model=self.model,
             contents=voter_prompt(question, responses, critiques),
             config=types.GenerateContentConfig(
                 system_instruction=VOTER_SYSTEM,

@@ -1,6 +1,6 @@
 [project]
 name = "collabia"
-version = "0.1.0"
+version = "0.2.0"
 description = "Multi-agent conversational chatbot where LLMs debate until reaching consensus"
 requires-python = ">=3.11"
 dependencies = [
@@ -11,6 +11,7 @@ dependencies = [
     "rich>=13.0.0",
     "pydantic-settings>=2.0.0",
     "json-repair>=0.58.6",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]

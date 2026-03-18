@@ -33,7 +33,6 @@ Eliminated agents can no longer respond but still participate in critique and vo
 **1. GCP project with Vertex AI**
 
 ```bash
-# Create a project and enable Vertex AI
 gcloud projects create your-project-id --name="Your Project"
 gcloud billing projects link your-project-id --billing-account=YOUR_BILLING_ACCOUNT_ID
 gcloud services enable aiplatform.googleapis.com --project=your-project-id
@@ -72,10 +71,29 @@ uv sync
 |---|---|---|
 | `GCP_PROJECT_ID` | *(required)* | Your GCP project ID |
 | `GCP_REGION` | `us-central1` | Vertex AI region |
-| `GEMINI_MODEL` | `gemini-2.5-pro` | Primary agent model |
-| `GEMINI_FLASH_MODEL` | `gemini-2.5-flash` | Secondary agent model |
-| `GEMINI_LITE_MODEL` | `gemini-3.1-flash-lite-preview` | Third agent model |
 | `MAX_ROUNDS` | `5` | Maximum debate rounds |
+
+### Agent configs (YAML)
+
+Agents are defined in YAML files under `agents/`. Two configs are provided:
+
+**`agents/default.yaml`** — Gemini 2.5 Pro + Flash + Lite (recommended)
+
+**`agents/3xlite.yaml`** — 3× Gemini Flash Lite (budget/benchmark)
+
+Custom config example:
+```yaml
+agents:
+  - id: agent-a
+    display_name: "Gemini Pro"
+    provider: gemini
+    model: gemini-2.5-pro
+
+  - id: agent-b
+    display_name: "Gemini Flash"
+    provider: gemini
+    model: gemini-2.5-flash
+```
 
 ## Usage
 
@@ -94,7 +112,28 @@ uv run collabia "What is the best way to learn machine learning?"
 uv run collabia "Is Python better than JavaScript?" --rounds 3 --verbose
 ```
 
+**Use a custom agent config:**
+```bash
+uv run collabia "Your question" --config agents/3xlite.yaml
+```
+
+**Benchmark — compare multiple configs on the same question:**
+```bash
+uv run collabia benchmark "Your question"
+# runs default.yaml then 3xlite.yaml and shows a side-by-side comparison
+```
+
 | Option | Default | Description |
 |---|---|---|
 | `--rounds` / `-r` | `5` | Max elimination rounds |
 | `--verbose` / `-v` | off | Show full responses, critiques, and vote details |
+| `--config` / `-c` | `agents/default.yaml` | Path to agents YAML config |
+
+## Benchmark results
+
+See [`tests/runs.md`](tests/runs.md) for documented test runs comparing response quality across configs and rounds.
+
+**Key findings from Série 1 & 2:**
+- The consensus loop consistently improves final responses vs round 1 (5/5 tests)
+- Pro/Flash models produce complete standalone answers; Lite ×3 in iterative mode adds complementary angles rather than rewriting from scratch
+- 3× Lite reviewed approaches Pro quality but differs in behavior: additive vs integrative reasoning
