@@ -66,9 +66,8 @@ class Display:
                 console.print(
                     Panel(
                         f"[bold]Preferred:[/] {analysis.preferred_agent_id}\n"
-                        f"[bold]Reasoning:[/] {analysis.reasoning}\n"
-                        f"[bold]Weaknesses:[/] {analysis.weaknesses}",
-                        title=f"[magenta]{analysis.agent_id}[/] analysis",
+                        f"[bold]Reasoning:[/] {analysis.reasoning}",
+                        title=f"[magenta]{analysis.agent_id}[/] vote",
                         border_style="magenta",
                     )
                 )

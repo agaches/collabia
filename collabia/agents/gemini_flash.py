@@ -25,7 +25,7 @@ class GeminiFlashAgent(BaseAgent):
             contents=responder_prompt(question, context),
             config=types.GenerateContentConfig(
                 system_instruction=RESPONDER_SYSTEM,
-                max_output_tokens=2048,
+
             ),
         )
         return AgentResponse(agent_id=self.agent_id, text=response.text, round_num=round_num)
@@ -41,7 +41,7 @@ class GeminiFlashAgent(BaseAgent):
             contents=critic_prompt(question, responses),
             config=types.GenerateContentConfig(
                 system_instruction=CRITIC_SYSTEM,
-                max_output_tokens=2048,
+
                 response_mime_type="application/json",
             ),
         )
@@ -64,7 +64,7 @@ class GeminiFlashAgent(BaseAgent):
             contents=voter_prompt(question, responses, critiques),
             config=types.GenerateContentConfig(
                 system_instruction=VOTER_SYSTEM,
-                max_output_tokens=2048,
+
                 response_mime_type="application/json",
             ),
         )
