@@ -287,3 +287,65 @@ Angle "charge cognitive + cycle de vie". Monolithe Modulaire comme destination f
 - Sur les sujets de conseil/orientation (T3, T4), l'angle original de Lite vaut plus que la complétude cataloguée de Flash
 - Sur les sujets encyclopédiques (T2 GIL, T5 Microservices), la profondeur intégrative du Pro fait la différence
 - **Limite identifiée** : pas de phase de synthèse finale — Lite R2 ajoute sans consolider R1+R2 en une réponse unifiée
+
+---
+
+## Analyse coût : default vs 3xlite
+
+### Prix Vertex AI confirmés (2026-03-18)
+
+| Modèle | Input $/M tokens | Output $/M tokens |
+|---|---|---|
+| gemini-2.5-pro | $1.25 | $10.00 |
+| gemini-2.5-flash | $0.30 | $2.50 |
+| gemini-3.1-flash-lite-preview | $0.25 | $1.50 |
+
+Source : cloud.google.com/vertex-ai/generative-ai/pricing
+
+### Structure des appels (depuis le code)
+
+Par agent, par round actif, 3 appels séquentiels :
+
+| Appel | Input estimé | Output estimé | Contenu input |
+|---|---|---|---|
+| `respond` | ~70 tokens | ~600 tokens | system + question (+ contexte R2) |
+| `critique` | ~2 000 tokens | ~300 tokens | system + question + 3 réponses |
+| `analyze` | ~4 700 tokens | ~85 tokens | system + question + réponses + toutes les critiques |
+| **Total round actif** | **~6 770** | **~985** | |
+| Total round éliminé (critique+analyze seulement) | ~6 700 | ~385 | |
+
+> **Ces chiffres sont des estimations** dérivées de la lecture du code (structure des prompts) — aucun comptage réel des tokens API n'a été effectué.
+
+### Coût estimé par question (2 rounds, pattern d'élimination observé)
+
+**Config default (Pro actif 2 rounds en moyenne, Flash idem, Lite éliminé R1) :**
+
+| Agent | ~Input | ~Output | Coût |
+|---|---|---|---|
+| Pro (gagne 3/5 : actif 2 rounds) | ~10 500 | ~1 725 | **$0.030** |
+| Flash (gagne 2/5 : actif 2 rounds) | ~10 400 | ~1 600 | **$0.007** |
+| Lite (éliminé R1, critique+analyze R2) | ~10 100 | ~1 360 | **$0.005** |
+| **Total default** | | | **~$0.042** |
+
+**Config 3xlite (1 gagnant actif 2 rounds, 2 éliminés R1) :**
+
+| Agent | ~Input | ~Output | Coût |
+|---|---|---|---|
+| Gagnant (actif 2 rounds) | ~10 800 | ~1 960 | $0.006 |
+| Éliminé ×2 (R1 + critique R2) | ~10 100 ×2 | ~1 360 ×2 | $0.009 |
+| **Total 3xlite** | | | **~$0.015** |
+
+### Synthèse coût/qualité
+
+| Config | Score moyen | Coût estimé / question | Ratio |
+|---|---|---|---|
+| default | 8.3/10 | ~$0.042 | 1× |
+| 3xlite | 8.3/10 | ~$0.015 | **~2.8× moins cher** |
+
+**La règle des 72% :** le Pro représente ~72% du coût default malgré des tokens identiques aux autres agents — uniquement dû à son prix output ($10/M vs $2.50 Flash, $1.50 Lite).
+
+**Note importante :** `gemini-3.1-flash-lite-preview` n'est PAS "presque gratuit" — à $1.50/M output, il est seulement ~1.7× moins cher que Flash en output. Le mythe du "modèle lite = négligeable" ne tient pas ici. Les économies de 3xlite viennent quasi-exclusivement de la suppression du Pro, pas du prix du modèle Lite.
+
+**Pour 1 000 questions :**
+- default : ~$42
+- 3xlite : ~$15
