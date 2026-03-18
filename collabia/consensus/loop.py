@@ -1,8 +1,15 @@
 import asyncio
+from dataclasses import dataclass
 
 from collabia.agents.base import AgentAnalysis, AgentCritique, AgentResponse, BaseAgent
 from collabia.consensus.voting import compute_elimination_votes, find_best
 from collabia.display.terminal import Display
+
+
+@dataclass
+class ConsensusResult:
+    winner: AgentResponse
+    first_response: AgentResponse | None  # winner's round 1 response, None if only 1 round
 
 
 async def run_consensus(
@@ -11,9 +18,10 @@ async def run_consensus(
     max_rounds: int,
     display: Display,
     verbose: bool = False,
-) -> AgentResponse:
+) -> ConsensusResult:
     context = ""
     last_responses: dict[str, AgentResponse] = {}
+    first_responses: dict[str, AgentResponse] = {}  # round 1 responses
 
     for round_num in range(1, max_rounds + 1):
         active_agents = [a for a in agents if not a.is_eliminated]
@@ -22,7 +30,9 @@ async def run_consensus(
         if len(active_agents) == 1:
             winner = active_agents[0]
             display.winner(winner.display_name, round_num - 1)
-            return last_responses[winner.agent_id]
+            final = last_responses[winner.agent_id]
+            first = first_responses.get(winner.agent_id)
+            return ConsensusResult(winner=final, first_response=first if first != final else None)
 
         display.start_round(round_num, max_rounds, [a.display_name for a in active_agents])
 
@@ -44,6 +54,8 @@ async def run_consensus(
             break
 
         last_responses.update(responses)
+        if round_num == 1:
+            first_responses = dict(responses)
         display.show_responses(responses, verbose)
 
         # --- Phase 2: parallel critiques from ALL agents ---
@@ -99,10 +111,10 @@ async def run_consensus(
     display.no_consensus(max_rounds)
     active_agents = [a for a in agents if not a.is_eliminated]
     if active_agents and last_responses:
-        active_ids = [a.agent_id for a in active_agents]
-        # Pick the one with fewest elimination votes in the last round
-        for aid in active_ids:
+        for aid in [a.agent_id for a in active_agents]:
             if aid in last_responses:
-                return last_responses[aid]
+                final = last_responses[aid]
+                first = first_responses.get(aid)
+                return ConsensusResult(winner=final, first_response=first if first != final else None)
 
     raise RuntimeError("No responses were generated.")

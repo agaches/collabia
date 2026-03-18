@@ -40,7 +40,10 @@ def ask(
             display=display,
             verbose=verbose,
         )
-        display.show_final_answer(result, agents)
+        if result.first_response:
+            display.show_before_after(result.first_response, result.winner, agents)
+        else:
+            display.show_final_answer(result.winner, agents)
 
     asyncio.run(_run())
 

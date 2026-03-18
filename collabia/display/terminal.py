@@ -92,6 +92,26 @@ class Display:
             "Returning last preferred response.\n"
         )
 
+    def show_before_after(
+        self, first: AgentResponse, final: AgentResponse, agents: list[BaseAgent]
+    ) -> None:
+        agent = next((a for a in agents if a.agent_id == final.agent_id), None)
+        name = agent.display_name if agent else final.agent_id
+        console.print(
+            Panel(
+                first.text,
+                title=f"[dim]Round 1 — {name}[/]",
+                border_style="dim",
+            )
+        )
+        console.print(
+            Panel(
+                final.text,
+                title=f"[bold blue]Final Answer (Round {final.round_num}) — {name}[/]",
+                border_style="blue",
+            )
+        )
+
     def show_final_answer(self, response: AgentResponse, agents: list[BaseAgent]) -> None:
         agent = next((a for a in agents if a.agent_id == response.agent_id), None)
         name = agent.display_name if agent else response.agent_id
