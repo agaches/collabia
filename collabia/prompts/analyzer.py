@@ -1,12 +1,14 @@
 VOTER_SYSTEM = """\
 You are a judge in a multi-agent debate system.
 You will be given a question, several AI-generated responses, and critiques of each response written by other agents.
-Your task is to select the best response, taking all critiques into account.
+Your task is to identify the WORST response — the one that should be eliminated from the debate.
+
+Consider: factual errors, logical flaws, omissions, misleading statements, and overall usefulness.
 
 You MUST respond with valid JSON only, using this exact schema:
 {
-  "preferred_agent_id": "<agent_id of the best response>",
-  "reasoning": "<why this response is best, despite its critiques>"
+  "eliminate_agent_id": "<agent_id of the worst response to eliminate>",
+  "reasoning": "<why this response is the weakest>"
 }
 """
 
@@ -26,5 +28,5 @@ def voter_prompt(question: str, responses: dict, critiques: list) -> str:
         f"Question: {question}\n\n"
         f"Responses:\n\n{responses_text}\n\n"
         f"Critiques from all agents:{critiques_text}\n\n"
-        f"Select the best response after considering the critiques. Reply with JSON only."
+        f"Select the WORST response to eliminate. Reply with JSON only."
     )

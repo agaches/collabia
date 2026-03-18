@@ -19,7 +19,7 @@ class AgentCritique:
 @dataclass
 class AgentAnalysis:
     agent_id: str
-    preferred_agent_id: str
+    eliminate_agent_id: str
     reasoning: str
     round_num: int
 

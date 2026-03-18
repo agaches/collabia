@@ -71,7 +71,7 @@ class GeminiFlashAgent(BaseAgent):
         data = json.loads(response.text)
         return AgentAnalysis(
             agent_id=self.agent_id,
-            preferred_agent_id=data["preferred_agent_id"],
+            eliminate_agent_id=data["eliminate_agent_id"],
             reasoning=data["reasoning"],
             round_num=round_num,
         )

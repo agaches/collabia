@@ -1,7 +1,7 @@
 import asyncio
 
 from collabia.agents.base import AgentAnalysis, AgentCritique, AgentResponse, BaseAgent
-from collabia.consensus.voting import compute_majority, find_worst, is_majority
+from collabia.consensus.voting import compute_elimination_votes, find_best
 from collabia.display.terminal import Display
 
 
@@ -17,6 +17,12 @@ async def run_consensus(
 
     for round_num in range(1, max_rounds + 1):
         active_agents = [a for a in agents if not a.is_eliminated]
+
+        # Only 1 active agent left — they win
+        if len(active_agents) == 1:
+            winner = active_agents[0]
+            display.winner(winner.display_name, round_num - 1)
+            return last_responses[winner.agent_id]
 
         display.start_round(round_num, max_rounds, [a.display_name for a in active_agents])
 
@@ -37,7 +43,7 @@ async def run_consensus(
             display.error("All agents failed this round.")
             break
 
-        last_responses = responses
+        last_responses.update(responses)
         display.show_responses(responses, verbose)
 
         # --- Phase 2: parallel critiques from ALL agents ---
@@ -55,7 +61,7 @@ async def run_consensus(
 
         display.show_critiques(critiques, verbose)
 
-        # --- Phase 3: parallel votes from ALL agents (informed by critiques) ---
+        # --- Phase 3: parallel elimination votes from ALL agents ---
         analysis_tasks = [
             agent.analyze(question, responses, critiques, round_num) for agent in agents
         ]
@@ -72,32 +78,31 @@ async def run_consensus(
             display.error("All votes failed.")
             break
 
-        preferred_id, votes = compute_majority(analyses)
-        display.show_votes(votes, analyses, verbose)
+        worst_id, votes = compute_elimination_votes(analyses)
+        display.show_elimination_votes(votes, analyses, verbose)
 
-        # --- Consensus check ---
-        if is_majority(votes, len(agents)):
-            display.consensus_reached(round_num, preferred_id, agents)
-            return responses[preferred_id]
+        # Eliminate the agent with the most votes against them
+        for agent in agents:
+            if agent.agent_id == worst_id:
+                agent.is_eliminated = True
+                display.agent_eliminated(agent.display_name)
+                break
 
-        # --- Eliminate worst agent (only if more than 1 active) ---
-        if len(active_agents) > 1:
-            active_ids = [a.agent_id for a in active_agents]
-            worst_id = find_worst(votes, active_ids)
-            for agent in agents:
-                if agent.agent_id == worst_id:
-                    agent.is_eliminated = True
-                    display.agent_eliminated(agent.display_name)
-                    break
+        # Update context with the best remaining response
+        active_ids = [a.agent_id for a in agents if not a.is_eliminated]
+        if active_ids:
+            best_id = find_best(votes, active_ids)
+            if best_id in responses:
+                context = responses[best_id].text
 
-        # Update context with preferred response
-        if preferred_id in responses:
-            context = responses[preferred_id].text
-
-    # No consensus reached — return the last preferred response
+    # Max rounds reached — return the last best response among active agents
     display.no_consensus(max_rounds)
-    if last_responses:
-        preferred_id = next(iter(last_responses))
-        return last_responses[preferred_id]
+    active_agents = [a for a in agents if not a.is_eliminated]
+    if active_agents and last_responses:
+        active_ids = [a.agent_id for a in active_agents]
+        # Pick the one with fewest elimination votes in the last round
+        for aid in active_ids:
+            if aid in last_responses:
+                return last_responses[aid]
 
     raise RuntimeError("No responses were generated.")

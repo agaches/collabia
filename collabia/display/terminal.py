@@ -51,12 +51,12 @@ class Display:
                 )
             )
 
-    def show_votes(
+    def show_elimination_votes(
         self, votes: Counter, analyses: list[AgentAnalysis], verbose: bool
     ) -> None:
-        table = Table(title="Votes", show_header=True, header_style="bold magenta")
+        table = Table(title="Elimination votes", show_header=True, header_style="bold red")
         table.add_column("Agent", style="cyan")
-        table.add_column("Votes", justify="right")
+        table.add_column("Votes to eliminate", justify="right")
         for agent_id, count in votes.most_common():
             table.add_row(agent_id, str(count))
         console.print(table)
@@ -65,21 +65,16 @@ class Display:
             for analysis in analyses:
                 console.print(
                     Panel(
-                        f"[bold]Preferred:[/] {analysis.preferred_agent_id}\n"
+                        f"[bold]Eliminate:[/] {analysis.eliminate_agent_id}\n"
                         f"[bold]Reasoning:[/] {analysis.reasoning}",
                         title=f"[magenta]{analysis.agent_id}[/] vote",
                         border_style="magenta",
                     )
                 )
 
-    def consensus_reached(
-        self, round_num: int, winner_id: str, agents: list[BaseAgent]
-    ) -> None:
-        winner = next((a for a in agents if a.agent_id == winner_id), None)
-        name = winner.display_name if winner else winner_id
+    def winner(self, display_name: str, rounds: int) -> None:
         console.print(
-            f"\n[bold green]✓ Consensus reached in round {round_num}![/] "
-            f"Winner: [bold]{name}[/]\n"
+            f"\n[bold green]✓ Winner after {rounds} round(s): [bold]{display_name}[/][/]\n"
         )
 
     def agent_eliminated(self, display_name: str) -> None:
