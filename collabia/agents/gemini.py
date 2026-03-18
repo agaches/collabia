@@ -1,9 +1,8 @@
-import json
-
 from google import genai
 from google.genai import types
 
 from collabia.agents.base import AgentAnalysis, AgentCritique, AgentResponse, BaseAgent
+from collabia.utils import parse_json
 from collabia.config import settings
 from collabia.prompts.analyzer import VOTER_SYSTEM, voter_prompt
 from collabia.prompts.critic import CRITIC_SYSTEM, critic_prompt
@@ -43,7 +42,7 @@ class GeminiAgent(BaseAgent):
                 response_mime_type="application/json",
             ),
         )
-        data = json.loads(response.text)
+        data = parse_json(response.text)
         return AgentCritique(
             agent_id=self.agent_id,
             critiques=data["critiques"],
@@ -65,7 +64,7 @@ class GeminiAgent(BaseAgent):
                 response_mime_type="application/json",
             ),
         )
-        data = json.loads(response.text)
+        data = parse_json(response.text)
         return AgentAnalysis(
             agent_id=self.agent_id,
             eliminate_agent_id=data["eliminate_agent_id"],
